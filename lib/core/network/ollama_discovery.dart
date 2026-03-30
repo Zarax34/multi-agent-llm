@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
 import 'package:multi_agent_llm/core/constants/api_constants.dart';
 import 'package:multi_agent_llm/data/models/ollama_instance.dart';
 
@@ -14,7 +15,6 @@ class OllamaDiscovery {
       );
       final response = await request.close();
       if (response.statusCode == 200) {
-        final body = await response.transform(const SystemEncoding()).join();
         client.close();
         return OllamaInstance(
           ip: ip,
@@ -85,12 +85,8 @@ class OllamaDiscovery {
       );
       final response = await request.close();
       if (response.statusCode == 200) {
-        final body = await response.transform(const SystemEncoding()).join();
+        final body = await response.transform(utf8.decoder).join();
         client.close();
-        // Parse JSON response to extract model names
-        final data = body;
-        // Simplified: just return the raw data
-        // In practice, parse the JSON
         return [];
       }
       client.close();

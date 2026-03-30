@@ -1,6 +1,9 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:multi_agent_llm/data/models/chat_message.dart';
 import 'package:multi_agent_llm/data/models/llm_model.dart';
+import 'package:multi_agent_llm/data/models/agent_model.dart';
+import 'package:multi_agent_llm/data/models/pipeline_model.dart';
+import 'package:multi_agent_llm/data/models/ollama_instance.dart';
 
 /// Hive-based local storage service
 class HiveService {
@@ -36,14 +39,20 @@ class HiveService {
 
   // ─── Agents ──────────────────────────────────────────
 
-  Future<void> saveAgent(Map<String, dynamic> agent) async {
-    await _agentsBox.put(agent['id'], agent);
+  Future<void> saveAgent(AgentModel agent) async {
+    await _agentsBox.put(agent.id, agent.toJson());
   }
 
-  List<Map<String, dynamic>> getAgents() {
+  List<AgentModel> getAgents() {
     return _agentsBox.values
-        .map((data) => Map<String, dynamic>.from(data))
+        .map((data) => AgentModel.fromJson(Map<String, dynamic>.from(data)))
         .toList();
+  }
+
+  AgentModel? getAgent(String id) {
+    final data = _agentsBox.get(id);
+    if (data == null) return null;
+    return AgentModel.fromJson(Map<String, dynamic>.from(data));
   }
 
   Future<void> deleteAgent(String agentId) async {
@@ -52,18 +61,37 @@ class HiveService {
 
   // ─── Pipelines ───────────────────────────────────────
 
-  Future<void> savePipeline(Map<String, dynamic> pipeline) async {
-    await _pipelinesBox.put(pipeline['id'], pipeline);
+  Future<void> savePipeline(PipelineModel pipeline) async {
+    await _pipelinesBox.put(pipeline.id, pipeline.toJson());
   }
 
-  List<Map<String, dynamic>> getPipelines() {
+  List<PipelineModel> getPipelines() {
     return _pipelinesBox.values
-        .map((data) => Map<String, dynamic>.from(data))
+        .map((data) => PipelineModel.fromJson(Map<String, dynamic>.from(data)))
         .toList();
   }
 
   Future<void> deletePipeline(String pipelineId) async {
     await _pipelinesBox.delete(pipelineId);
+  }
+
+  // ─── Ollama Instances ────────────────────────────────
+
+  Future<void> saveOllamaInstance(OllamaInstance instance) async {
+    await _settingsBox.put('ollama_${instance.ip}', instance.toJson());
+  }
+
+  List<OllamaInstance> getOllamaInstances() {
+    return _settingsBox.keys
+        .where((key) => key.toString().startsWith('ollama_'))
+        .map((key) => _settingsBox.get(key))
+        .where((data) => data != null)
+        .map((data) => OllamaInstance.fromJson(Map<String, dynamic>.from(data as Map)))
+        .toList();
+  }
+
+  Future<void> deleteOllamaInstance(String ip) async {
+    await _settingsBox.delete('ollama_$ip');
   }
 
   // ─── Conversations ───────────────────────────────────
@@ -102,32 +130,6 @@ class HiveService {
 
   Future<void> clearAllConversations() async {
     await _conversationsBox.clear();
-  }
-
-  // ─── Ollama Instances ────────────────────────────────
-
-  Future<void> saveOllamaInstance(dynamic instance) async {
-    final data = {
-      'ip': instance.ip,
-      'port': instance.port,
-      'isOnline': instance.isOnline,
-      'lastSeen': instance.lastSeen?.toIso8601String(),
-      'modelName': instance.modelName,
-    };
-    await _settingsBox.put('ollama_${instance.ip}', data);
-  }
-
-  List<dynamic> getOllamaInstances() {
-    return _settingsBox.keys
-        .where((key) => key.toString().startsWith('ollama_'))
-        .map((key) => _settingsBox.get(key))
-        .where((data) => data != null)
-        .map((data) => Map<String, dynamic>.from(data as Map))
-        .toList();
-  }
-
-  Future<void> deleteOllamaInstance(String ip) async {
-    await _settingsBox.delete('ollama_$ip');
   }
 
   // ─── Settings ────────────────────────────────────────
