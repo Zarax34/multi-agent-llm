@@ -24,6 +24,13 @@ jobs:
       - name: Flutter version
         run: flutter --version
 
+      - name: Recreate Android project
+        run: |
+          rm -rf android
+          flutter create --org com.example --project-name multi_agent_llm --platforms android .
+          # Restore our pubspec.yaml
+          git checkout -- pubspec.yaml lib/
+
       - name: Accept licenses
         run: yes | flutter doctor --android-licenses || true
 
