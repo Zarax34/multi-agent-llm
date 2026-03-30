@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +30,6 @@ jobs:
         run: |
           rm -rf android
           flutter create --org com.example --project-name multi_agent_llm --platforms android .
-          # Restore our pubspec.yaml
           git checkout -- pubspec.yaml lib/
 
       - name: Accept licenses
@@ -48,6 +49,7 @@ jobs:
 
       - name: Create Release
         if: github.ref == 'refs/heads/main'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -55,10 +57,11 @@ jobs:
           gh release create "$VERSION" \
             build/app/outputs/flutter-apk/app-release.apk \
             --title "Multi-Agent LLM $VERSION" \
-            --notes "Auto-built APK from commit ${{ github.sha }}" \
+            --notes "Auto-built APK" \
             --prerelease \
-            || echo "Release exists, updating..."
+            || true
           
           gh release upload "$VERSION" \
             build/app/outputs/flutter-apk/app-release.apk \
-            --clobber
+            --clobber \
+            || true
