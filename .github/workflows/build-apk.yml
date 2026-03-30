@@ -18,11 +18,14 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
+          channel: 'stable'
           cache: true
 
+      - name: Flutter version
+        run: flutter --version
+
       - name: Accept licenses
-        run: yes | flutter doctor --android-licenses
+        run: yes | flutter doctor --android-licenses || true
 
       - name: Install dependencies
         run: flutter pub get
@@ -47,7 +50,7 @@ jobs:
             --title "Multi-Agent LLM $VERSION" \
             --notes "Auto-built APK from commit ${{ github.sha }}" \
             --prerelease \
-            || echo "Release already exists, updating..."
+            || echo "Release exists, updating..."
           
           gh release upload "$VERSION" \
             build/app/outputs/flutter-apk/app-release.apk \
