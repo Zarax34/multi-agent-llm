@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:multi_agent_llm/core/theme/app_theme.dart';
 
+/// Minimal Ollama-style sidebar
 class Sidebar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onItemSelected;
@@ -14,146 +14,113 @@ class Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textCol = isDark ? const Color(0xFFE5E5E5) : Colors.black;
+    final mutedCol = isDark ? const Color(0xFF737373) : Colors.grey.shade600;
+    final bgCol = isDark ? const Color(0xFF0D0D0D) : const Color(0xFFFAFAFA);
+    final hoverCol = isDark ? const Color(0xFF171717) : Colors.grey.shade100;
+    final borderCol = isDark ? const Color(0xFF262626) : Colors.grey.shade300;
+
     return Container(
       width: 260,
-      color: Theme.of(context).colorScheme.surface,
+      color: bgCol,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(20),
+          // Logo header — minimal
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
             child: Row(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(12),
+                Text(
+                  'ollama',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: textCol,
+                    letterSpacing: -0.5,
                   ),
-                  child: const Icon(Icons.smart_toy, color: Colors.white, size: 22),
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Multi-Agent',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    Text(
-                      'LLM System',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: AppTheme.secondaryText(context),
-                      ),
-                    ),
-                  ],
-                ),
+                const Spacer(),
+                Icon(Icons.add, size: 18, color: mutedCol),
               ],
             ),
           ),
-          const Divider(height: 1),
+
+          Divider(color: borderCol, height: 1),
+
           const SizedBox(height: 8),
 
-          // Navigation items
-          _buildNavItem(
-            context,
-            icon: Icons.chat_bubble_outline,
-            selectedIcon: Icons.chat_bubble,
-            label: 'Chat',
-            index: 0,
+          // Main nav items
+          _item(context, Icons.chat_bubble_outline, 'New chat', -1, textCol, mutedCol, hoverCol),
+
+          const SizedBox(height: 16),
+
+          // Section label
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Navigation',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: mutedCol,
+                letterSpacing: 0.5,
+              ),
+            ),
           ),
-          _buildNavItem(
-            context,
-            icon: Icons.model_training_outlined,
-            selectedIcon: Icons.model_training,
-            label: 'Models',
-            index: 1,
-          ),
-          _buildNavItem(
-            context,
-            icon: Icons.smart_toy_outlined,
-            selectedIcon: Icons.smart_toy,
-            label: 'Agents',
-            index: 2,
-          ),
-          _buildNavItem(
-            context,
-            icon: Icons.account_tree_outlined,
-            selectedIcon: Icons.account_tree,
-            label: 'Pipeline',
-            index: 3,
-          ),
-          _buildNavItem(
-            context,
-            icon: Icons.wifi_find_outlined,
-            selectedIcon: Icons.wifi_find,
-            label: 'Ollama Discovery',
-            index: 4,
-          ),
+
+          const SizedBox(height: 4),
+
+          _item(context, Icons.chat_bubble_outline, 'Chat', 0, textCol, mutedCol, hoverCol),
+          _item(context, Icons.storage_outlined, 'Models', 1, textCol, mutedCol, hoverCol),
+          _item(context, Icons.smart_toy_outlined, 'Agents', 2, textCol, mutedCol, hoverCol),
+          _item(context, Icons.account_tree_outlined, 'Pipeline', 3, textCol, mutedCol, hoverCol),
+          _item(context, Icons.wifi_find_outlined, 'Ollama', 4, textCol, mutedCol, hoverCol),
 
           const Spacer(),
 
-          const Divider(height: 1),
+          Divider(color: borderCol, height: 1),
 
-          _buildNavItem(
-            context,
-            icon: Icons.settings_outlined,
-            selectedIcon: Icons.settings,
-            label: 'Settings',
-            index: 5,
-          ),
+          _item(context, Icons.settings_outlined, 'Settings', 5, textCol, mutedCol, hoverCol),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem(
-    BuildContext context, {
-    required IconData icon,
-    required IconData selectedIcon,
-    required String label,
-    required int index,
-  }) {
+  Widget _item(
+    BuildContext context,
+    IconData icon,
+    String label,
+    int index,
+    Color textCol,
+    Color mutedCol,
+    Color hoverCol,
+  ) {
     final isSelected = selectedIndex == index;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Material(
-        color: isSelected
-            ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        color: isSelected ? hoverCol : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
         child: InkWell(
           onTap: () => onItemSelected(index),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
-                Icon(
-                  isSelected ? selectedIcon : icon,
-                  size: 20,
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : AppTheme.secondaryText(context),
-                ),
-                const SizedBox(width: 12),
+                Icon(icon, size: 16, color: isSelected ? textCol : mutedCol),
+                const SizedBox(width: 10),
                 Text(
                   label,
                   style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : AppTheme.secondaryText(context),
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                    color: isSelected ? textCol : mutedCol,
                   ),
                 ),
               ],

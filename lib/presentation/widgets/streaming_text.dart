@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Animated streaming text widget for real-time LLM responses
+/// Minimal streaming text with subtle cursor
 class StreamingText extends StatefulWidget {
   final String text;
   final TextStyle? style;
@@ -18,47 +18,33 @@ class StreamingText extends StatefulWidget {
 
 class _StreamingTextState extends State<StreamingText>
     with SingleTickerProviderStateMixin {
-  late AnimationController _cursorController;
+  late AnimationController _cursor;
 
   @override
   void initState() {
     super.initState();
-    _cursorController = AnimationController(
+    _cursor = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _cursorController.dispose();
+    _cursor.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: SelectableText(
-            widget.text,
-            style: widget.style ?? GoogleFonts.inter(fontSize: 14),
-          ),
-        ),
-        FadeTransition(
-          opacity: _cursorController,
-          child: Container(
-            width: 2,
-            height: 16,
-            margin: const EdgeInsets.only(left: 2, top: 3),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
-              borderRadius: BorderRadius.circular(1),
-            ),
-          ),
-        ),
-      ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SelectableText(
+      widget.text,
+      style: widget.style ?? GoogleFonts.inter(
+        fontSize: 14,
+        height: 1.6,
+      ),
     );
   }
 }

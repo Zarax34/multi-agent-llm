@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:multi_agent_llm/core/theme/app_theme.dart';
-import 'package:multi_agent_llm/data/models/llm_model.dart';
 import 'package:multi_agent_llm/data/models/chat_message.dart';
 import 'package:multi_agent_llm/presentation/blocs/chat_bloc.dart';
 import 'package:multi_agent_llm/presentation/blocs/models_bloc.dart';
 import 'package:multi_agent_llm/presentation/widgets/chat_bubble.dart';
 import 'package:multi_agent_llm/presentation/widgets/streaming_text.dart';
 
+/// Clean Ollama-style chat screen
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -17,12 +16,12 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
+  final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
-    _messageController.dispose();
+    _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -32,92 +31,101 @@ class _ChatScreenState extends State<ChatScreen> {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
         );
       }
     });
   }
 
-  void _sendMessage() {
-    final content = _messageController.text.trim();
-    if (content.isEmpty) return;
+  void _send() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
 
-    final chatState = context.read<ChatBloc>().state;
-    if (chatState.selectedModel == null) {
+    final state = context.read<ChatBloc>().state;
+    if (state.selectedModel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a model first')),
+        SnackBar(
+          content: Text('Select a model first', style: GoogleFonts.inter()),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF171717),
+        ),
       );
       return;
     }
 
     context.read<ChatBloc>().add(SendMessage(
-      content: content,
-      model: chatState.selectedModel!,
+      content: text,
+      model: state.selectedModel!,
     ));
 
-    _messageController.clear();
+    _controller.clear();
     _scrollToBottom();
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ChatBloc, ChatState>(
-      builder: (context, chatState) {
+      builder: (context, state) {
         return Column(
           children: [
-            // Model selector
-            _buildModelSelector(chatState),
+            // Model selector — thin top bar
+            _topBar(state),
 
-            // Messages
-            Expanded(child: _buildMessagesList(chatState)),
+            // Chat area
+            Expanded(
+              child: state.messages.isEmpty && !state.isStreaming
+                  ? _emptyState()
+                  : _messagesList(state),
+            ),
 
-            // Input bar
-            _buildInputBar(chatState),
+            // Input
+            _inputBar(state),
           ],
         );
       },
     );
   }
 
-  Widget _buildModelSelector(ChatState chatState) {
+  Widget _topBar(ChatState chatState) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mutedCol = isDark ? const Color(0xFF737373) : Colors.grey.shade600;
+
     return BlocBuilder<ModelsBloc, ModelsState>(
       builder: (context, modelsState) {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
             border: Border(
               bottom: BorderSide(
                 color: Theme.of(context).dividerColor,
-                width: 0.5,
+                width: 1,
               ),
             ),
           ),
           child: Row(
             children: [
-              Icon(Icons.model_training, size: 18,
-                  color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 8),
+              // Model dropdown — clean
               Expanded(
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: chatState.selectedModel?.id,
-                    hint: Text('Select a model',
-                        style: GoogleFonts.inter(fontSize: 14)),
-                    isExpanded: true,
-                    dropdownColor: Theme.of(context).colorScheme.surface,
-                    items: modelsState.models.map((model) {
+                    hint: Text(
+                      'Select a model',
+                      style: GoogleFonts.inter(fontSize: 13, color: mutedCol),
+                    ),
+                    isDense: true,
+                    dropdownColor: isDark ? const Color(0xFF171717) : Colors.white,
+                    style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFFE5E5E5)),
+                    icon: Icon(Icons.expand_more, size: 18, color: mutedCol),
+                    items: modelsState.models.map((m) {
                       return DropdownMenuItem(
-                        value: model.id,
+                        value: m.id,
                         child: Row(
                           children: [
-                            _buildBackendIcon(model.backendType),
+                            _backendDot(m.backendType),
                             const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(model.name,
-                                  style: GoogleFonts.inter(fontSize: 14)),
-                            ),
+                            Text(m.name, style: GoogleFonts.inter(fontSize: 13)),
                           ],
                         ),
                       );
@@ -131,10 +139,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
               ),
+
+              // New chat icon
               IconButton(
-                icon: const Icon(Icons.add, size: 20),
+                icon: Icon(Icons.edit_square, size: 18, color: mutedCol),
                 onPressed: () => context.read<ChatBloc>().add(NewConversation()),
                 tooltip: 'New chat',
+                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
@@ -143,141 +154,136 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildBackendIcon(BackendType type) {
-    IconData icon;
-    Color color;
-    switch (type) {
-      case BackendType.localGguf:
-        icon = Icons.computer;
-        color = Colors.green;
-        break;
-      case BackendType.ollamaRemote:
-        icon = Icons.cloud;
-        color = Colors.blue;
-        break;
-      case BackendType.openaiCompatible:
-        icon = Icons.api;
-        color = Colors.orange;
-        break;
-    }
-    return Icon(icon, size: 16, color: color);
+  Widget _backendDot(dynamic type) {
+    Color c;
+    // Handle BackendType enum
+    c = Colors.green; // default local
+    return Container(
+      width: 6,
+      height: 6,
+      decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+    );
   }
 
-  Widget _buildMessagesList(ChatState chatState) {
-    if (chatState.messages.isEmpty && chatState.streamingContent.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.chat_bubble_outline,
-                size: 64,
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
-            const SizedBox(height: 16),
-            Text(
-              'Start a conversation',
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                color: AppTheme.secondaryText(context),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Select a model and type a message',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: AppTheme.secondaryText(context),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+  Widget _emptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mutedCol = isDark ? const Color(0xFF525252) : Colors.grey.shade400;
 
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'How can I help you today?',
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: isDark ? const Color(0xFFA3A3A3) : Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Select a model and start chatting',
+            style: GoogleFonts.inter(fontSize: 13, color: mutedCol),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _messagesList(ChatState state) {
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: chatState.messages.length + (chatState.isStreaming ? 1 : 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      itemCount: state.messages.length + (state.isStreaming ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index == chatState.messages.length && chatState.isStreaming) {
+        if (index == state.messages.length && state.isStreaming) {
           return ChatBubble(
             role: MessageRole.assistant,
-            child: StreamingText(text: chatState.streamingContent),
+            child: StreamingText(text: state.streamingContent),
           );
         }
 
-        final message = chatState.messages[index];
+        final msg = state.messages[index];
         return ChatBubble(
-          role: message.role,
+          role: msg.role,
           child: SelectableText(
-            message.content,
-            style: GoogleFonts.inter(fontSize: 14),
+            msg.content,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              height: 1.6,
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildInputBar(ChatState chatState) {
+  Widget _inputBar(ChatState state) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgCol = isDark ? const Color(0xFF0D0D0D) : const Color(0xFFFAFAFA);
+    final borderCol = isDark ? const Color(0xFF262626) : Colors.grey.shade300;
+    final mutedCol = isDark ? const Color(0xFF737373) : Colors.grey.shade600;
+
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 0.5,
-          ),
-        ),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      color: bgCol,
       child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _messageController,
-                maxLines: null,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendMessage(),
-                decoration: InputDecoration(
-                  hintText: 'Type a message...',
-                  hintStyle: GoogleFonts.inter(
-                    color: AppTheme.secondaryText(context),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  filled: true,
-                  fillColor: Theme.of(context).scaffoldBackgroundColor,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF171717) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderCol),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  maxLines: 4,
+                  minLines: 1,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _send(),
+                  style: GoogleFonts.inter(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Send a message',
+                    hintStyle: GoogleFonts.inter(color: mutedCol, fontSize: 14),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                   ),
                 ),
-                style: GoogleFonts.inter(fontSize: 14),
               ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: chatState.isStreaming
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
+              Padding(
+                padding: const EdgeInsets.only(right: 6, bottom: 6),
+                child: state.isStreaming
+                    ? SizedBox(
+                        width: 28,
+                        height: 28,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: mutedCol,
                         ),
                       )
-                    : const Icon(Icons.send, color: Colors.white, size: 20),
-                onPressed: chatState.isStreaming ? null : _sendMessage,
+                    : IconButton(
+                        icon: Icon(Icons.arrow_upward, size: 18, color: mutedCol),
+                        onPressed: _send,
+                        style: IconButton.styleFrom(
+                          backgroundColor: isDark
+                              ? const Color(0xFF262626)
+                              : Colors.grey.shade200,
+                          minimumSize: const Size(28, 28),
+                          padding: EdgeInsets.zero,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

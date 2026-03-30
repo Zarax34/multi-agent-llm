@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:multi_agent_llm/presentation/screens/chat_screen.dart';
 import 'package:multi_agent_llm/presentation/screens/models_screen.dart';
 import 'package:multi_agent_llm/presentation/screens/agents_screen.dart';
@@ -10,6 +9,7 @@ import 'package:multi_agent_llm/presentation/widgets/sidebar.dart';
 import 'package:multi_agent_llm/presentation/blocs/models_bloc.dart';
 import 'package:multi_agent_llm/presentation/blocs/agents_bloc.dart';
 import 'package:multi_agent_llm/presentation/blocs/discovery_bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,19 +30,9 @@ class _HomeScreenState extends State<HomeScreen> {
     SettingsScreen(),
   ];
 
-  final List<String> _titles = [
-    'Chat',
-    'Models',
-    'Agents',
-    'Pipeline',
-    'Ollama Discovery',
-    'Settings',
-  ];
-
   @override
   void initState() {
     super.initState();
-    // Load initial data
     context.read<ModelsBloc>().add(LoadModels());
     context.read<AgentsBloc>().add(LoadAgents());
     context.read<DiscoveryBloc>().add(LoadSavedInstances());
@@ -52,86 +42,67 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 800;
+        final isWide = constraints.maxWidth > 700;
 
         if (isWide) {
-          return _buildWideLayout();
-        }
-        return _buildNarrowLayout();
-      },
-    );
-  }
-
-  Widget _buildWideLayout() {
-    return Scaffold(
-      body: Row(
-        children: [
-          Sidebar(
-            selectedIndex: _selectedIndex,
-            onItemSelected: (index) => setState(() => _selectedIndex = index),
-          ),
-          Expanded(
-            child: Column(
+          return Scaffold(
+            body: Row(
               children: [
-                AppBar(
-                  title: Text(_titles[_selectedIndex]),
-                  automaticallyImplyLeading: false,
+                Sidebar(
+                  selectedIndex: _selectedIndex,
+                  onItemSelected: (i) => setState(() => _selectedIndex = i),
+                ),
+                // Subtle border
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: Theme.of(context).dividerColor,
                 ),
                 Expanded(child: _screens[_selectedIndex]),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
+          );
+        }
 
-  Widget _buildNarrowLayout() {
-    return Scaffold(
-      appBar: AppBar(title: Text(_titles[_selectedIndex])),
-      drawer: Drawer(
-        child: Sidebar(
-          selectedIndex: _selectedIndex,
-          onItemSelected: (index) {
-            setState(() => _selectedIndex = index);
-            Navigator.pop(context);
-          },
-        ),
-      ),
-      body: _screens[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex.clamp(0, 4),
-        onDestinationSelected: (index) {
-          if (index < 5) setState(() => _selectedIndex = index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
+        // Mobile layout — bottom nav
+        return Scaffold(
+          body: _screens[_selectedIndex],
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex.clamp(0, 4),
+            onDestinationSelected: (i) {
+              if (i < 5) setState(() => _selectedIndex = i);
+            },
+            height: 56,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.chat_bubble_outline, size: 20),
+                selectedIcon: Icon(Icons.chat_bubble, size: 20),
+                label: 'Chat',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.storage_outlined, size: 20),
+                selectedIcon: Icon(Icons.storage, size: 20),
+                label: 'Models',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.smart_toy_outlined, size: 20),
+                selectedIcon: Icon(Icons.smart_toy, size: 20),
+                label: 'Agents',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.account_tree_outlined, size: 20),
+                selectedIcon: Icon(Icons.account_tree, size: 20),
+                label: 'Pipeline',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.wifi_find_outlined, size: 20),
+                selectedIcon: Icon(Icons.wifi_find, size: 20),
+                label: 'Ollama',
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.model_training_outlined),
-            selectedIcon: Icon(Icons.model_training),
-            label: 'Models',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.smart_toy_outlined),
-            selectedIcon: Icon(Icons.smart_toy),
-            label: 'Agents',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_tree_outlined),
-            selectedIcon: Icon(Icons.account_tree),
-            label: 'Pipeline',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.wifi_find_outlined),
-            selectedIcon: Icon(Icons.wifi_find),
-            label: 'Discover',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
